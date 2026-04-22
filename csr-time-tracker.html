@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSR Time Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sidebar-bg: #1a1f2e;
+    --sidebar-text: #c8cdd8;
+    --sidebar-active-bg: #6c47d4;
+    --sidebar-active-text: #fff;
+    --sidebar-hover: rgba(255,255,255,0.07);
+    --page-bg: #edf6f3;
+    --card-bg: #ffffff;
+    --card-border: #e2e8f0;
+    --text-primary: #1a202c;
+    --text-secondary: #718096;
+    --text-muted: #a0aec0;
+    --accent-purple: #6c47d4;
+    --accent-purple-hover: #5a38b8;
+    --accent-green: #38a169;
+    --accent-blue: #3182ce;
+    --accent-red: #e53e3e;
+    --timer-running: #38a169;
+    --border-radius: 10px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--page-bg); color: var(--text-primary); min-height: 100vh; display: flex; font-size: 14px; }
+
+  /* Sidebar */
+  .sidebar { width: 210px; min-width: 210px; background: var(--sidebar-bg); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; }
+  .sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 20px 18px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .sidebar-brand-icon { width: 28px; height: 28px; background: var(--accent-purple); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .sidebar-brand-name { color: #fff; font-weight: 600; font-size: 14px; }
+  .sidebar-nav { flex: 1; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 7px; color: var(--sidebar-text); cursor: pointer; font-size: 13.5px; font-weight: 500; transition: all 0.15s; border: none; background: transparent; width: 100%; text-align: left; }
+  .nav-item:hover { background: var(--sidebar-hover); color: #fff; }
+  .nav-item.active { background: var(--sidebar-active-bg); color: #fff; }
+  .nav-icon { font-size: 14px; width: 18px; text-align: center; }
+  .sidebar-footer { padding: 12px 10px; border-top: 1px solid rgba(255,255,255,0.08); }
+  .sidebar-footer .nav-item { font-size: 12.5px; color: #8892a4; cursor: default; }
+
+  /* Main */
+  .main { margin-left: 210px; flex: 1; padding: 36px 40px; min-height: 100vh; }
+  .page-header { margin-bottom: 28px; }
+  .page-title { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px; }
+  .page-sub { font-size: 13px; color: var(--text-secondary); }
+
+  /* Stat row */
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+  .stat-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--border-radius); padding: 16px 18px; box-shadow: var(--shadow); }
+  .stat-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .stat-val { font-size: 26px; font-weight: 700; }
+  .stat-val.green { color: var(--accent-green); }
+  .stat-val.blue { color: var(--accent-blue); }
+  .stat-val.purple { color: var(--accent-purple); }
+
+  /* Cards */
+  .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--border-radius); box-shadow: var(--shadow); margin-bottom: 20px; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--card-border); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 14px; font-weight: 600; }
+  .card-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .card-body { padding: 20px; }
+
+  /* Forms */
+  select, input[type="text"], input[type="password"], input[type="date"] { background: #fff; border: 1px solid var(--card-border); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 13.5px; padding: 8px 12px; border-radius: 7px; transition: border-color 0.15s, box-shadow 0.15s; appearance: none; }
+  select:focus, input:focus { outline: none; border-color: var(--accent-purple); box-shadow: 0 0 0 3px rgba(108,71,212,0.1); }
+  .select-wrap { position: relative; display: inline-block; }
+  .select-wrap::after { content: ''; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--text-muted); pointer-events: none; }
+  .select-wrap select { padding-right: 28px; }
+
+  /* CSR row */
+  .csr-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .csr-row label { font-size: 13px; font-weight: 500; color: var(--text-secondary); white-space: nowrap; }
+
+  /* Timer */
+  .timer-section { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .timer-clock { font-size: 38px; font-weight: 700; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; min-width: 145px; transition: color 0.3s; }
+  .timer-clock.running { color: var(--timer-running); }
+  .timer-controls { display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap; }
+  .timer-controls .select-wrap { flex: 1; min-width: 200px; }
+  .timer-controls .select-wrap select { width: 100%; }
+  .running-badge { display: none; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--timer-running); background: rgba(56,161,105,0.1); border: 1px solid rgba(56,161,105,0.25); padding: 4px 10px; border-radius: 20px; }
+  .running-badge.show { display: flex; }
+  .running-dot { width: 6px; height: 6px; background: var(--timer-running); border-radius: 50%; animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 7px; font-family: 'Inter', sans-serif; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 0.15s; border: none; white-space: nowrap; }
+  .btn-purple { background: var(--accent-purple); color: #fff; }
+  .btn-purple:hover { background: var(--accent-purple-hover); }
+  .btn-outline { background: transparent; color: var(--text-secondary); border: 1px solid var(--card-border); }
+  .btn-outline:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+  .btn-stop { background: transparent; color: var(--accent-red); border: 1px solid #fed7d7; }
+  .btn-stop:hover { background: var(--accent-red); color: #fff; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-del { color: var(--accent-red); border-color: #fed7d7; }
+  .btn-del:hover { background: var(--accent-red); color: #fff; }
+
+  /* Tables */
+  .log-table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { font-size: 11.5px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--card-border); }
+  tbody tr { transition: background 0.1s; }
+  tbody tr:hover { background: #f7fafc; }
+  tbody td { padding: 11px 16px; border-bottom: 1px solid #f0f4f8; font-size: 13.5px; }
+  tbody tr:last-child td { border-bottom: none; }
+  .td-mono { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .td-muted { color: var(--text-secondary); font-size: 12.5px; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 4px; font-size: 11.5px; font-weight: 500; background: rgba(108,71,212,0.1); color: var(--accent-purple); }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 13px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; padding: 16px 20px 0; border-bottom: 1px solid var(--card-border); }
+  .tab-btn { padding: 8px 14px; border: none; background: transparent; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; color: var(--text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+  .tab-btn:hover { color: var(--text-primary); }
+  .tab-btn.active { color: var(--accent-purple); border-bottom-color: var(--accent-purple); font-weight: 600; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Filters */
+  .filters { display: flex; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--card-border); flex-wrap: wrap; align-items: center; }
+  .filters label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  .filters .select-wrap select, .filters input[type="date"] { font-size: 12.5px; padding: 6px 10px; }
+  .filters .select-wrap { display: inline-block; position: relative; }
+  .filters .select-wrap::after { content: ''; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--text-muted); pointer-events: none; }
+  .filters .select-wrap select { padding-right: 26px; }
+
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 12px; padding: 28px; width: 400px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.15); animation: modalIn 0.18s ease; }
+  @keyframes modalIn { from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)} }
+  .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .modal-sub { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 20px; }
+  .modal input, .modal select { width: 100%; margin-bottom: 12px; padding: 10px 14px; font-size: 14px; }
+  .modal-btns { display: flex; gap: 8px; margin-top: 4px; }
+  .modal-btns .btn { flex: 1; justify-content: center; }
+  .modal-error { color: var(--accent-red); font-size: 12px; margin-bottom: 10px; display: none; }
+
+  /* CSR manager */
+  .csr-mgr-item { display: flex; align-items: center; justify-content: space-between; padding: 11px 20px; border-bottom: 1px solid var(--card-border); font-size: 13.5px; font-weight: 500; }
+  .csr-mgr-item:last-child { border-bottom: none; }
+  .add-csr-row { display: flex; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--card-border); }
+  .add-csr-row input { flex: 1; }
+
+  #mgrView { display: none; }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-icon">⏱</div>
+    <span class="sidebar-brand-name">Time Tracker</span>
+  </div>
+  <nav class="sidebar-nav">
+    <button class="nav-item active" id="navTracker" onclick="closeMgrView()">
+      <span class="nav-icon">▶</span> Tracker
+    </button>
+    <button class="nav-item" onclick="openManagerPin()">
+      <span class="nav-icon">⚙</span> Manager View
+    </button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="nav-item"><span class="nav-icon">🏢</span> Impiricus</div>
+  </div>
+</aside>
+
+<main class="main">
+
+  <!-- Tracker View -->
+  <div id="trackerView">
+    <div class="page-header">
+      <div class="page-title">Time Tracker</div>
+      <div class="page-sub" id="todayDateSub">Track your tasks for today</div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-label">⏰ Total Today</div>
+        <div class="stat-val" id="statTotal">0h 0m</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">📋 Entries</div>
+        <div class="stat-val green" id="statEntries">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">🏆 Top Task</div>
+        <div class="stat-val blue" id="statTop" style="font-size:16px;padding-top:5px">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">👤 Active CSR</div>
+        <div class="stat-val purple" id="statCsr" style="font-size:16px;padding-top:5px">—</div>
+      </div>
+    </div>
+
+    <div class="csr-row">
+      <label>Who are you?</label>
+      <div class="select-wrap">
+        <select id="csrSelect" onchange="onCsrChange()">
+          <option value="">— Select your name —</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Current Session</div>
+          <div class="card-sub">Select a task and start the timer</div>
+        </div>
+        <div class="running-badge" id="runningBadge"><div class="running-dot"></div> Recording</div>
+      </div>
+      <div class="card-body">
+        <div class="timer-section">
+          <div class="timer-clock" id="timerDisplay">00:00:00</div>
+          <div class="timer-controls">
+            <div class="select-wrap">
+              <select id="taskSelect">
+                <option value="">— Select a task —</option>
+                <option>Break</option><option>Checking Emails/Texts</option><option>Checking Jira Tickets</option>
+                <option>Checking Zendesk Tickets</option><option>Daily Wrap Up</option><option>End of Shift</option>
+                <option>Filling Out Forms</option><option>Free Time</option><option>HCP Communication</option>
+                <option>HCP Follow-up</option><option>Manufacturer Communication</option><option>Meeting</option>
+                <option>MSL Communication</option><option>Other</option><option>Rep Communication</option>
+                <option>Research</option><option>Start of Shift</option><option>Updating Product Guide</option>
+                <option>Updating the Channel</option>
+              </select>
+            </div>
+            <button class="btn btn-purple" id="timerBtn" onclick="toggleTimer()">▶ Start Timer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Today's Log</div>
+          <div class="card-sub">Same-day entries can be edited or deleted</div>
+        </div>
+      </div>
+      <div class="log-table-wrap">
+        <table>
+          <thead><tr><th>Task</th><th>Duration</th><th>Started At</th><th></th></tr></thead>
+          <tbody id="logBody">
+            <tr><td colspan="4"><div class="empty-state">Select your name above to see your log.</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manager View -->
+  <div id="mgrView">
+    <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div>
+        <div class="page-title">Manager Dashboard</div>
+        <div class="page-sub">Overview of all CSR time logs</div>
+      </div>
+      <button class="btn btn-outline" onclick="closeMgrView()">← Back to Tracker</button>
+    </div>
+
+    <div class="card">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="mgrTab('Summary',this)">Summary</button>
+        <button class="tab-btn" onclick="mgrTab('Log',this)">Raw Log</button>
+        <button class="tab-btn" onclick="mgrTab('Csrs',this)">Manage CSRs</button>
+      </div>
+
+      <div class="tab-panel active" id="tabSummary">
+        <div class="filters">
+          <label>From</label><input type="date" id="filterFrom" onchange="renderMgr()">
+          <label>To</label><input type="date" id="filterTo" onchange="renderMgr()">
+          <div class="select-wrap"><select id="filterCsr" onchange="renderMgr()"><option value="">All CSRs</option></select></div>
+        </div>
+        <div class="log-table-wrap">
+          <table>
+            <thead><tr><th>CSR</th><th>Task</th><th>Total Time</th><th>Entries</th></tr></thead>
+            <tbody id="summaryBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tabLog">
+        <div class="filters">
+          <label>From</label><input type="date" id="logFilterFrom" onchange="renderMgrLog()">
+          <label>To</label><input type="date" id="logFilterTo" onchange="renderMgrLog()">
+          <div class="select-wrap"><select id="logFilterCsr" onchange="renderMgrLog()"><option value="">All CSRs</option></select></div>
+        </div>
+        <div class="log-table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>CSR</th><th>Task</th><th>Duration</th><th>Started</th></tr></thead>
+            <tbody id="mgrLogBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tabCsrs">
+        <div id="csrListContainer"></div>
+        <div class="add-csr-row">
+          <input type="text" id="newCsrName" placeholder="Add new CSR name..." onkeydown="if(event.key==='Enter')addCsr()">
+          <button class="btn btn-purple" onclick="addCsr()">+ Add CSR</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- PIN Modal -->
+<div class="modal-overlay" id="pinModal">
+  <div class="modal">
+    <div class="modal-title">Manager Access</div>
+    <div class="modal-sub">Enter your 4-digit PIN to continue</div>
+    <div class="modal-error" id="pinError">Incorrect PIN. Please try again.</div>
+    <input type="password" id="pinInput" maxlength="4" placeholder="Enter PIN" inputmode="numeric" onkeydown="if(event.key==='Enter')checkPin()">
+    <div class="modal-btns">
+      <button class="btn btn-purple" onclick="checkPin()">Unlock</button>
+      <button class="btn btn-outline" onclick="closeModal('pinModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-title">Edit Entry</div>
+    <div class="modal-sub">Update the task category for this entry</div>
+    <div class="select-wrap" style="width:100%;display:block;margin-bottom:12px">
+      <select id="editTask" style="width:100%">
+        <option>Break</option><option>Checking Emails/Texts</option><option>Checking Jira Tickets</option>
+        <option>Checking Zendesk Tickets</option><option>Daily Wrap Up</option><option>End of Shift</option>
+        <option>Filling Out Forms</option><option>Free Time</option><option>HCP Communication</option>
+        <option>HCP Follow-up</option><option>Manufacturer Communication</option><option>Meeting</option>
+        <option>MSL Communication</option><option>Other</option><option>Rep Communication</option>
+        <option>Research</option><option>Start of Shift</option><option>Updating Product Guide</option>
+        <option>Updating the Channel</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-purple" onclick="saveEdit()">Save Changes</button>
+      <button class="btn btn-outline" onclick="closeModal('editModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const MANAGER_PIN = '1234';
+const STORAGE_KEY = 'impiricus_tt_v2';
+const CSRS_KEY = 'impiricus_csrs_v2';
+
+let timer = { running: false, startTs: null, task: null };
+let timerInterval = null;
+let currentCsr = '';
+let editingId = null;
+
+function loadEntries() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch { return []; } }
+function saveEntries(e) { localStorage.setItem(STORAGE_KEY, JSON.stringify(e)); }
+function loadCsrs() { try { const r=localStorage.getItem(CSRS_KEY); return r?JSON.parse(r):['Alex Johnson','Jordan Smith','Taylor Brown']; } catch { return []; } }
+function saveCsrs(l) { localStorage.setItem(CSRS_KEY, JSON.stringify(l)); }
+
+function todayKey() { return new Date().toISOString().split('T')[0]; }
+function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2); }
+function pad(n) { return String(n).padStart(2,'0'); }
+function fmtClock(s) { return `${pad(Math.floor(s/3600))}:${pad(Math.floor(s%3600/60))}:${pad(s%60)}`; }
+function fmtHM(s) { const h=Math.floor(s/3600),m=Math.floor(s%3600/60); return h>0?`${h}h ${m}m`:`${m}m`; }
+
+function init() {
+  const d = new Date();
+  document.getElementById('todayDateSub').textContent = d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  populateCsrSelect();
+  renderLog();
+  const today=todayKey(), wk=new Date(); wk.setDate(wk.getDate()-7);
+  const wkStr=wk.toISOString().split('T')[0];
+  ['filterFrom','logFilterFrom'].forEach(id=>document.getElementById(id).value=wkStr);
+  ['filterTo','logFilterTo'].forEach(id=>document.getElementById(id).value=today);
+}
+
+function populateCsrSelect() {
+  const csrs=loadCsrs(), sel=document.getElementById('csrSelect'), cur=sel.value;
+  sel.innerHTML='<option value="">— Select your name —</option>';
+  csrs.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; if(c===cur)o.selected=true; sel.appendChild(o); });
+}
+
+function onCsrChange() {
+  currentCsr=document.getElementById('csrSelect').value;
+  document.getElementById('statCsr').textContent=currentCsr?currentCsr.split(' ')[0]:'—';
+  renderLog();
+}
+
+function toggleTimer() {
+  if (!currentCsr) { alert('Please select your name first.'); return; }
+  if (!timer.running) {
+    const task=document.getElementById('taskSelect').value;
+    if (!task) { alert('Please select a task first.'); return; }
+    timer={running:true,startTs:Date.now(),task};
+    document.getElementById('timerDisplay').classList.add('running');
+    document.getElementById('runningBadge').classList.add('show');
+    const btn=document.getElementById('timerBtn');
+    btn.textContent='■ Stop Timer'; btn.className='btn btn-stop';
+    timerInterval=setInterval(()=>{ document.getElementById('timerDisplay').textContent=fmtClock(Math.floor((Date.now()-timer.startTs)/1000)); },1000);
+  } else {
+    clearInterval(timerInterval);
+    const elapsed=Math.floor((Date.now()-timer.startTs)/1000);
+    if (elapsed>=5) {
+      const entries=loadEntries();
+      entries.push({id:uid(),csr:currentCsr,task:timer.task,date:todayKey(),startTs:timer.startTs,duration:elapsed,startTime:new Date(timer.startTs).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})});
+      saveEntries(entries);
+    }
+    timer={running:false,startTs:null,task:null};
+    document.getElementById('timerDisplay').textContent='00:00:00';
+    document.getElementById('timerDisplay').classList.remove('running');
+    document.getElementById('runningBadge').classList.remove('show');
+    const btn=document.getElementById('timerBtn');
+    btn.textContent='▶ Start Timer'; btn.className='btn btn-purple';
+    renderLog();
+  }
+}
+
+function renderLog() {
+  const tbody=document.getElementById('logBody');
+  if (!currentCsr) { tbody.innerHTML='<tr><td colspan="4"><div class="empty-state">Select your name above to see your log.</div></td></tr>'; updateStats([]); return; }
+  const entries=loadEntries().filter(e=>e.csr===currentCsr&&e.date===todayKey());
+  if (!entries.length) { tbody.innerHTML='<tr><td colspan="4"><div class="empty-state">No entries yet today. Start a task above to begin tracking.</div></td></tr>'; updateStats([]); return; }
+  tbody.innerHTML='';
+  [...entries].reverse().forEach(e=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><span class="badge">${e.task}</span></td><td class="td-mono">${fmtHM(e.duration)}</td><td class="td-muted">${e.startTime}</td><td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="openEdit('${e.id}')" style="margin-right:4px">Edit</button><button class="btn btn-outline btn-sm btn-del" onclick="deleteEntry('${e.id}')">Delete</button></td>`;
+    tbody.appendChild(tr);
+  });
+  updateStats(entries);
+}
+
+function updateStats(entries) {
+  const total=entries.reduce((s,e)=>s+e.duration,0);
+  const tc={}; entries.forEach(e=>tc[e.task]=(tc[e.task]||0)+e.duration);
+  const top=Object.entries(tc).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('statTotal').textContent=fmtHM(total);
+  document.getElementById('statEntries').textContent=entries.length;
+  document.getElementById('statTop').textContent=top?top[0].split(' ').slice(0,2).join(' '):'—';
+}
+
+function openEdit(id) {
+  editingId=id;
+  const e=loadEntries().find(x=>x.id===id); if(!e)return;
+  document.getElementById('editTask').value=e.task;
+  openModal('editModal');
+}
+function saveEdit() {
+  const entries=loadEntries(), idx=entries.findIndex(e=>e.id===editingId);
+  if(idx!==-1){entries[idx].task=document.getElementById('editTask').value; saveEntries(entries);}
+  closeModal('editModal'); renderLog();
+}
+function deleteEntry(id) {
+  if(!confirm('Delete this entry?'))return;
+  saveEntries(loadEntries().filter(e=>e.id!==id)); renderLog();
+}
+
+function openManagerPin() {
+  document.getElementById('pinInput').value='';
+  document.getElementById('pinError').style.display='none';
+  openModal('pinModal');
+  setTimeout(()=>document.getElementById('pinInput').focus(),120);
+}
+function checkPin() {
+  if(document.getElementById('pinInput').value===MANAGER_PIN){closeModal('pinModal');openMgrView();}
+  else{document.getElementById('pinError').style.display='block'; document.getElementById('pinInput').value='';}
+}
+function openMgrView() {
+  document.getElementById('trackerView').style.display='none';
+  document.getElementById('mgrView').style.display='block';
+  document.getElementById('navTracker').classList.remove('active');
+  populateMgrFilters(); renderMgr();
+}
+function closeMgrView() {
+  document.getElementById('mgrView').style.display='none';
+  document.getElementById('trackerView').style.display='block';
+  document.getElementById('navTracker').classList.add('active');
+}
+
+function mgrTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='Log')renderMgrLog();
+  if(name==='Csrs')renderCsrList();
+}
+
+function populateMgrFilters() {
+  const csrs=loadCsrs();
+  ['filterCsr','logFilterCsr'].forEach(id=>{
+    const sel=document.getElementById(id);
+    sel.innerHTML='<option value="">All CSRs</option>';
+    csrs.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
+  });
+}
+
+function getFiltered(fromId,toId,csrId) {
+  const from=document.getElementById(fromId).value,to=document.getElementById(toId).value,csr=document.getElementById(csrId).value;
+  return loadEntries().filter(e=>{ if(from&&e.date<from)return false; if(to&&e.date>to)return false; if(csr&&e.csr!==csr)return false; return true; });
+}
+
+function renderMgr() {
+  const entries=getFiltered('filterFrom','filterTo','filterCsr'), grouped={};
+  entries.forEach(e=>{ const k=`${e.csr}||${e.task}`; if(!grouped[k])grouped[k]={csr:e.csr,task:e.task,total:0,count:0}; grouped[k].total+=e.duration; grouped[k].count++; });
+  const tbody=document.getElementById('summaryBody'); tbody.innerHTML='';
+  const rows=Object.values(grouped).sort((a,b)=>b.total-a.total);
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="4"><div class="empty-state">No entries in this range.</div></td></tr>';return;}
+  rows.forEach(r=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${r.csr}</td><td><span class="badge">${r.task}</span></td><td class="td-mono">${fmtHM(r.total)}</td><td>${r.count}</td>`; tbody.appendChild(tr); });
+}
+
+function renderMgrLog() {
+  const entries=getFiltered('logFilterFrom','logFilterTo','logFilterCsr');
+  const tbody=document.getElementById('mgrLogBody'); tbody.innerHTML='';
+  if(!entries.length){tbody.innerHTML='<tr><td colspan="5"><div class="empty-state">No entries in this range.</div></td></tr>';return;}
+  [...entries].sort((a,b)=>b.startTs-a.startTs).forEach(e=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td class="td-muted">${e.date}</td><td>${e.csr}</td><td><span class="badge">${e.task}</span></td><td class="td-mono">${fmtHM(e.duration)}</td><td class="td-muted">${e.startTime}</td>`; tbody.appendChild(tr); });
+}
+
+function renderCsrList() {
+  const csrs=loadCsrs(), cont=document.getElementById('csrListContainer'); cont.innerHTML='';
+  if(!csrs.length){cont.innerHTML='<div class="empty-state" style="padding:20px">No CSRs yet.</div>';return;}
+  csrs.forEach(c=>{ const div=document.createElement('div'); div.className='csr-mgr-item'; div.innerHTML=`<span>${c}</span><button class="btn btn-outline btn-sm btn-del" onclick="removeCsr('${c}')">Remove</button>`; cont.appendChild(div); });
+}
+
+function addCsr() {
+  const input=document.getElementById('newCsrName'), name=input.value.trim(); if(!name)return;
+  const csrs=loadCsrs(); if(csrs.includes(name)){alert('Name already exists.');return;}
+  csrs.push(name); csrs.sort(); saveCsrs(csrs); input.value='';
+  renderCsrList(); populateCsrSelect(); populateMgrFilters();
+}
+function removeCsr(name) {
+  if(!confirm(`Remove "${name}"?`))return;
+  saveCsrs(loadCsrs().filter(c=>c!==name));
+  renderCsrList(); populateCsrSelect(); populateMgrFilters();
+}
+
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+init();
+</script>
+</body>
+</html>
